@@ -1,0 +1,81 @@
+name: CI
+
+# Tests run on every PR, on merges to main, and on version tags.
+# Publishing to PyPI happens only on version tags, and only after tests pass.
+on:
+  pull_request:
+  push:
+    branches: [main]
+    tags: ["v*"]
+
+# Cancel superseded runs on a PR; never cancel main/tag runs mid-publish.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: lint (ruff)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install package with dev extras
+        run: pip install -e .[dev]
+      - name: Ruff lint
+        run: ruff check .
+
+  test:
+    name: test (py${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install package with dev extras
+        run: pip install -e .[dev]
+      - name: Run tests
+        run: pytest
+
+  publish:
+    name: publish to PyPI
+    # Only on version tags, and only if lint and the full test matrix passed.
+    needs: [lint, test]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/issue-creds/
+    permissions:
+      id-token: write  # OIDC token for PyPI Trusted Publishing (no API token needed)
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build sdist and wheel
+        run: |
+          pip install build
+          python -m build
+      - name: Verify the tag matches the package version
+        # Guards against tagging v0.2.0 while __version__ is still 0.1.0.
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          if [ ! -f "dist/issue_creds-${VERSION}.tar.gz" ]; then
+            echo "::error::Tag ${GITHUB_REF_NAME} does not match the built version."
+            echo "Bump __version__ in src/issue_creds/__init__.py to match the tag."
+            echo "Built artifacts:"; ls -1 dist/
+            exit 1
+          fi
+      - name: Publish
+        uses: pypa/gh-action-pypi-publish@release/v1

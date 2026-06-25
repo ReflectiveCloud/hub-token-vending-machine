@@ -1,39 +1,81 @@
-# open-source-python-template
-A template for open source Python projects at Reflective.
+# issue-creds
 
-Note, if you would like this project to be Pip installable, you will need to place all code in `./src/PROJECT_NAME/` and add a completed `pyproject.toml` file in the root of the repo.
+Vend short-lived, scope-limited AWS S3 credentials from inside the hub. Wraps
+STS `AssumeRoleWithWebIdentity` and applies an inline **session policy** that can
+only *intersect* with the role's identity policy — it can shrink permissions,
+never widen them.
 
-Delete this section from the README when filling it out.
+## Install
 
-# YOUR PROJECT
+```bash
+pip install issue-creds            # from a built wheel/sdist or your index
+# or, from a checkout:
+pip install .
+```
+This installs an `issue-creds` command on `$PATH`. In the hub image:
+```dockerfile
+RUN pip install --no-cache-dir issue-creds
+```
 
-**IF YOUR PROJECT IS STILL UNDER ACTIVE DEVELOPMENT, ADD THIS WARNING MESSAGE. OTHERWISE DELETE.**
-> [!WARNING]
-> This project is under active development, there is no guarantee that it will operate as expected.
+## Usage
 
+```bash
+# Read the whole bucket for 30 minutes
+issue-creds --role download --bucket-scope reflective-persistent-prod --lifetime 30m
+# Read a single prefix
+issue-creds --role download --bucket-scope reflective-persistent-prod --prefix lagranto/runs
+# Upload — scope is fixed to your own JUPYTERHUB_USER prefix (no --prefix allowed)
+issue-creds --role upload --bucket-scope reflective-persistent-prod
+# Full role (the legacy "power user" behaviour)
+issue-creds --role power --bucket-scope reflective-persistent-prod
+```
 
-DESCRIBE YOUR PROJECT HERE.
+Load into the current shell:
+```bash
+eval "$(issue-creds --role download --bucket-scope reflective-persistent-prod)"
+```
+Inspect what *would* be requested without calling STS:
+```bash
+issue-creds --role upload --bucket-scope reflective-persistent-prod --dry-run
+```
 
-## Installation
+### Auto-refreshing profile (recommended)
+`--format credential-process` emits AWS's auto-refresh schema, so SDKs re-invoke
+the tool on expiry and credentials never touch your shell or history:
+```ini
+# ~/.aws/config
+[profile s3-download]
+credential_process = issue-creds --role download --bucket-scope reflective-persistent-prod --prefix lagranto/runs --format credential-process
+```
+Other formats: `--format env` (default), `--format profile`, `--format json`.
 
-INSTRUCTIONS ON HOW TO INSTALL THE PROJECT HERE.
+## Roles
+| role       | grants                                                            | prefix scoping                          |
+|------------|-------------------------------------------------------------------|-----------------------------------------|
+| `download` | Get/List (+versions), GetBucketLocation                           | optional `--prefix` (whole bucket if omitted) |
+| `upload`   | Put, multipart, List/ListMultipart, GetBucketLocation (no Get)    | forced to `JUPYTERHUB_USER/*`           |
+| `power`    | full role identity policy (no session policy)                     | n/a                                     |
 
-## Quick Start
+## Configuration (environment)
+| variable                        | purpose                                                              |
+|---------------------------------|----------------------------------------------------------------------|
+| `AWS_ROLE_ARN`                  | default role ARN (fallback for all roles)                            |
+| `ISSUE_CREDS_DOWNLOAD_ROLE_ARN` | dedicated download role ARN (optional; overrides the fallback)       |
+| `ISSUE_CREDS_UPLOAD_ROLE_ARN`   | dedicated upload role ARN (optional)                                 |
+| `ISSUE_CREDS_POWER_ROLE_ARN`    | dedicated power role ARN (optional)                                  |
+| `ISSUE_CREDS_MAX_LIFETIME`      | cap on `--lifetime` (default `1h`); also raise the role's `MaxSessionDuration` |
+| `AWS_WEB_IDENTITY_TOKEN_FILE`   | OIDC token file (set by the hub)                                     |
+| `JUPYTERHUB_USER`               | drives the upload prefix and CloudTrail session name                 |
 
-WHAT DOES A USER NEED TO DO TO BE ABLE TO USE THIS?
-
-## OTHER SECTIONS
-
-ADD ANY OTHER SECTIONS THAT YOU THINK ARE NECESSARY HERE.
-
-## Running Tests
-
-INSTRUCTIONS ON HOW TO RUN TESTS OR LINK TO THE CONTRIBUTING SECTION.
-
-## Citations
-
-ADD ANY CITATIONS HERE.
-
-## License
-
-This project is released under the Apache 2.0 License - see the [LICENSE](./LICENSE) file for details.
+## Security note
+The session policy is **defense-in-depth, not a boundary**. Any user who can read
+`AWS_WEB_IDENTITY_TOKEN_FILE` can call `AssumeRoleWithWebIdentity` themselves
+without the restrictive policy and get whatever the underlying role allows. Real
+enforcement comes from **separate, tightly-scoped IAM roles** per `download` /
+`upload` / `power`, gated by the OIDC trust policy. Set the dedicated role ARN
+env vars above to switch from advisory to enforced — no code change required.
+## Development
+```bash
+pip install -e .[dev]
+pytest
+```
