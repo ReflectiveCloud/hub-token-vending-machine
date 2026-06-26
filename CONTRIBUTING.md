@@ -85,6 +85,26 @@ For non-security bugs, please include:
 
 (For security vulnerabilities, see the [Security Policy](./SECURITY.md) instead.)
 
+## Releases
+
+Versioning is fully automated — there is **no version string to edit**. The
+version is derived from git tags by [hatch-vcs](https://github.com/ofek/hatch-vcs)
+(setuptools-scm style):
+
+- Every push to `main` builds the package and publishes a dev version
+  (e.g. `0.1.dev4`) to **TestPyPI**.
+- Pushing a tag `vX.Y.Z` publishes `X.Y.Z` to **PyPI**.
+
+To cut a release:
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+CI lints, tests across all supported Python versions, builds, and publishes via
+PyPI Trusted Publishing (OIDC) — no API tokens involved.
+
 ## License
 
 By contributing, you agree that your contributions will be licensed under the Apache 2.0 license.

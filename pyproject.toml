@@ -1,5 +1,5 @@
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
 [project]
@@ -27,7 +27,12 @@ dev = ["pytest>=8", "ruff>=0.8"]
 issue-creds = "issue_creds.cli:app"
 
 [tool.hatch.version]
-path = "src/issue_creds/__init__.py"
+# Version is derived from git tags (hatch-vcs / setuptools-scm style); never
+# hardcoded. Tag `vX.Y.Z` -> version `X.Y.Z`. `no-local-version` keeps dev
+# builds (between tags) free of `+g<hash>` local segments so they upload to
+# TestPyPI cleanly.
+source = "vcs"
+raw-options = { local_scheme = "no-local-version" }
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/issue_creds"]

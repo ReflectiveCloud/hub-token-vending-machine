@@ -1,7 +1,9 @@
 name: CI
 
-# Tests run on every PR, on merges to main, and on version tags.
-# Publishing to PyPI happens only on version tags, and only after tests pass.
+# Lint and tests run on every PR and push. On pushes we also build the package
+# and publish: dev versions go to TestPyPI on every push, and version tags
+# (vX.Y.Z) publish to PyPI. Versions are derived from git tags by hatch-vcs —
+# nothing is hardcoded, so a release is just `git tag vX.Y.Z && git push --tags`.
 on:
   pull_request:
   push:
@@ -22,6 +24,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # full history + tags so hatch-vcs can resolve the version
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -39,6 +43,8 @@ jobs:
         python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
@@ -47,19 +53,14 @@ jobs:
       - name: Run tests
         run: pytest
 
-  publish:
-    name: publish to PyPI
-    # Only on version tags, and only if lint and the full test matrix passed.
+  build:
+    name: build distribution
     needs: [lint, test]
-    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
-    environment:
-      name: pypi
-      url: https://pypi.org/project/issue-creds/
-    permissions:
-      id-token: write  # OIDC token for PyPI Trusted Publishing (no API token needed)
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # required: hatch-vcs computes the version from git tags
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -67,15 +68,47 @@ jobs:
         run: |
           pip install build
           python -m build
-      - name: Verify the tag matches the package version
-        # Guards against tagging v0.2.0 while __version__ is still 0.1.0.
-        run: |
-          VERSION="${GITHUB_REF_NAME#v}"
-          if [ ! -f "dist/issue_creds-${VERSION}.tar.gz" ]; then
-            echo "::error::Tag ${GITHUB_REF_NAME} does not match the built version."
-            echo "Bump __version__ in src/issue_creds/__init__.py to match the tag."
-            echo "Built artifacts:"; ls -1 dist/
-            exit 1
-          fi
-      - name: Publish
-        uses: pypa/gh-action-pypi-publish@release/v1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish-testpypi:
+    name: publish to TestPyPI
+    needs: build
+    # Every push (main commits and tags); never on PRs.
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/project/issue-creds/
+    permissions:
+      id-token: write  # OIDC token for Trusted Publishing (no API token needed)
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          skip-existing: true  # re-running at the same dev version is not an error
+          verbose: true
+
+  publish-pypi:
+    name: publish to PyPI
+    needs: build
+    # Only on version tags.
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/issue-creds/
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1

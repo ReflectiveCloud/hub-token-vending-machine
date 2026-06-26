@@ -37,7 +37,9 @@ def _parse_lifetime(value: str) -> int:
 def main(
     role: Annotated[Role, typer.Option(help="Permission profile to request.")],
     bucket_scope: Annotated[str, typer.Option(
-        "--bucket-scope", help="Target S3 bucket name (no arn:/s3:// prefix).")],
+        "--bucket-scope",
+        help="Target S3 bucket name (no arn:/s3:// prefix).",
+    )] = "reflective-persistent-prod",
     prefix: Annotated[Optional[str], typer.Option(
         help="Reads only: restrict to a key prefix, e.g. 'lagranto/runs'. "
              "Ignored for uploads, which are pinned to your JUPYTERHUB_USER "
@@ -56,7 +58,7 @@ def main(
         "--version", callback=_version_cb, is_eager=True,
         help="Show version and exit.")] = False,
 ) -> None:
-    """Issue scoped, short-lived S3 credentials."""
+    """Issue scoped, short-lived S3 credentials for use outside of the Hub."""
     try:
         seconds = _parse_lifetime(lifetime)
         cap = core.max_duration()
