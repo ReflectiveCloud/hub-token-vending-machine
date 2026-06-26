@@ -7,9 +7,7 @@ name: CI
 on:
   pull_request:
   push:
-    # TEMPORARY: all branches so TestPyPI publishing can be smoke-tested from a
-    # feature branch. Revert to `branches: [main]` once verified.
-    branches: ["**"]
+    branches: [main]
     tags: ["v*"]
 
 # Cancel superseded runs on a PR; never cancel main/tag runs mid-publish.
