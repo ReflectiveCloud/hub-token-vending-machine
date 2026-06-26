@@ -1,6 +1,11 @@
 """Typer CLI: the thin presentation layer over the issue_creds package."""
 
-from __future__ import annotations
+# NB: do NOT add `from __future__ import annotations` here. Typer introspects
+# this function's annotations at runtime to build the CLI, and on Python 3.9
+# (which is pinned to typer<=0.23.2) stringized annotations break option
+# detection — required options silently become positional arguments. Keeping
+# annotations as real objects (and using Optional[...] rather than `X | None`)
+# keeps the CLI correct across all supported Python/typer versions.
 
 import json
 import os
@@ -35,24 +40,30 @@ def _parse_lifetime(value: str) -> int:
 
 @app.command()
 def main(
-    role: Annotated[Role, typer.Option(help="Permission profile to request.")],
+    role: Annotated[Role, typer.Option(
+        "--role", help="Permission profile to request.")],
     bucket_scope: Annotated[str, typer.Option(
         "--bucket-scope",
         help="Target S3 bucket name (no arn:/s3:// prefix).",
     )] = "reflective-persistent-prod",
     prefix: Annotated[Optional[str], typer.Option(
+        "--prefix",
         help="Reads only: restrict to a key prefix, e.g. 'lagranto/runs'. "
              "Ignored for uploads, which are pinned to your JUPYTERHUB_USER "
              "prefix.")] = None,
     lifetime: Annotated[str, typer.Option(
+        "--lifetime",
         help="Credential lifetime: '30m', '2h', '1h30m', or seconds.")] = "1h",
     fmt: Annotated[OutputFormat, typer.Option(
         "--format", help="Output format.")] = OutputFormat.env,
     profile_name: Annotated[str, typer.Option(
+        "--profile-name",
         help="Profile name for --format profile.")] = "s3-scoped",
     region: Annotated[Optional[str], typer.Option(
+        "--region",
         help="Override region (else AWS_REGION/AWS_DEFAULT_REGION).")] = None,
     dry_run: Annotated[bool, typer.Option(
+        "--dry-run",
         help="Print the session policy and request params; do not call STS.")] = False,
     version: Annotated[bool, typer.Option(
         "--version", callback=_version_cb, is_eager=True,
