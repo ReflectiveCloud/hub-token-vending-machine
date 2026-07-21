@@ -9,7 +9,6 @@ import json
 import os
 import re
 from pathlib import Path
-from typing import Optional
 
 import boto3
 from botocore.exceptions import BotoCoreError, ClientError
@@ -116,8 +115,8 @@ def assume_role(
     session: str,
     token: str,
     seconds: int,
-    policy: Optional[dict],
-    region: Optional[str] = None,
+    policy: dict | None,
+    region: str | None = None,
 ) -> dict:
     """Call STS AssumeRoleWithWebIdentity and return the Credentials dict."""
     params = dict(

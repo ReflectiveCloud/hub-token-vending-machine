@@ -1,15 +1,14 @@
 """Typer CLI: the thin presentation layer over the issue_creds package."""
 
-# NB: do NOT add `from __future__ import annotations` here. Typer introspects
-# this function's annotations at runtime to build the CLI, and on Python 3.9
-# (which is pinned to typer<=0.23.2) stringized annotations break option
-# detection — required options silently become positional arguments. Keeping
-# annotations as real objects (and using Optional[...] rather than `X | None`)
-# keeps the CLI correct across all supported Python/typer versions.
+# NB: this module intentionally omits `from __future__ import annotations`.
+# Typer introspects this command's annotations at runtime (get_type_hints) to
+# build the CLI, so they must stay as real objects, not strings — older Typer
+# releases mis-detected stringized annotations and turned required options into
+# positional arguments.
 
 import json
 import os
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 
@@ -46,7 +45,7 @@ def main(
         "--bucket-scope",
         help="Target S3 bucket name (no arn:/s3:// prefix).",
     )] = "reflective-persistent-prod",
-    prefix: Annotated[Optional[str], typer.Option(
+    prefix: Annotated[str | None, typer.Option(
         "--prefix",
         help="Reads only: restrict to a key prefix, e.g. 'lagranto/runs'. "
              "Ignored for uploads, which are pinned to your JUPYTERHUB_USER "
@@ -59,7 +58,7 @@ def main(
     profile_name: Annotated[str, typer.Option(
         "--profile-name",
         help="Profile name for --format profile.")] = "s3-scoped",
-    region: Annotated[Optional[str], typer.Option(
+    region: Annotated[str | None, typer.Option(
         "--region",
         help="Override region (else AWS_REGION/AWS_DEFAULT_REGION).")] = None,
     dry_run: Annotated[bool, typer.Option(
@@ -93,7 +92,7 @@ def main(
                     "--prefix is not allowed for uploads; write scope is fixed "
                     "to your own JUPYTERHUB_USER prefix."
                 )
-            effective_prefix: Optional[str] = core.user_prefix()
+            effective_prefix: str | None = core.user_prefix()
         elif role is Role.power:
             if prefix is not None:
                 raise CredsError(

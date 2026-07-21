@@ -12,41 +12,26 @@ pip install issue-creds            # from a built wheel/sdist or your index
 # or, from a checkout:
 pip install .
 ```
-This installs an `issue-creds` command on `$PATH`. In the hub image:
-```dockerfile
-RUN pip install --no-cache-dir issue-creds
-```
+This installs an `issue-creds` command on `$PATH`.
 
 ## Usage
 
 ```bash
 # Read the whole bucket for 30 minutes
-issue-creds --role download --bucket-scope reflective-persistent-prod --lifetime 30m
+issue-creds --role download --lifetime 30m
 # Read a single prefix
-issue-creds --role download --bucket-scope reflective-persistent-prod --prefix lagranto/runs
+issue-creds --role download --prefix lagranto/runs
 # Upload — scope is fixed to your own JUPYTERHUB_USER prefix (no --prefix allowed)
-issue-creds --role upload --bucket-scope reflective-persistent-prod
+issue-creds --role upload
 # Full role (the legacy "power user" behaviour)
-issue-creds --role power --bucket-scope reflective-persistent-prod
+issue-creds --role power
 ```
 
-Load into the current shell:
-```bash
-eval "$(issue-creds --role download --bucket-scope reflective-persistent-prod)"
-```
 Inspect what *would* be requested without calling STS:
 ```bash
 issue-creds --role upload --bucket-scope reflective-persistent-prod --dry-run
 ```
 
-### Auto-refreshing profile (recommended)
-`--format credential-process` emits AWS's auto-refresh schema, so SDKs re-invoke
-the tool on expiry and credentials never touch your shell or history:
-```ini
-# ~/.aws/config
-[profile s3-download]
-credential_process = issue-creds --role download --bucket-scope reflective-persistent-prod --prefix lagranto/runs --format credential-process
-```
 Other formats: `--format env` (default), `--format profile`, `--format json`.
 
 ## Roles
@@ -54,7 +39,6 @@ Other formats: `--format env` (default), `--format profile`, `--format json`.
 |------------|-------------------------------------------------------------------|-----------------------------------------|
 | `download` | Get/List (+versions), GetBucketLocation                           | optional `--prefix` (whole bucket if omitted) |
 | `upload`   | Put, multipart, List/ListMultipart, GetBucketLocation (no Get)    | forced to `JUPYTERHUB_USER/*`           |
-| `power`    | full role identity policy (no session policy)                     | n/a                                     |
 
 ## Configuration (environment)
 | variable                        | purpose                                                              |
@@ -74,7 +58,9 @@ without the restrictive policy and get whatever the underlying role allows. Real
 enforcement comes from **separate, tightly-scoped IAM roles** per `download` /
 `upload` / `power`, gated by the OIDC trust policy. Set the dedicated role ARN
 env vars above to switch from advisory to enforced — no code change required.
+
 ## Development
+
 ```bash
 pip install -e .[dev]
 pytest

@@ -9,17 +9,16 @@ from __future__ import annotations
 
 import json
 import shlex
-from typing import Optional
 
 from .models import OutputFormat
 
 
 def render(
     creds: dict,
-    region: Optional[str],
+    region: str | None,
     fmt: OutputFormat,
     profile_name: str,
-) -> tuple[str, Optional[str]]:
+) -> tuple[str, str | None]:
     """Render an STS Credentials dict in ``fmt``, returning (stdout, stderr_note)."""
     akid = creds["AccessKeyId"]
     secret = creds["SecretAccessKey"]

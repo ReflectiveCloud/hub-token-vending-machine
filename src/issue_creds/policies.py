@@ -7,19 +7,17 @@ role's identity policy — never widen it.
 
 from __future__ import annotations
 
-from typing import Optional
-
 from .models import Role
 
 
-def _object_resource(bucket: str, prefix: Optional[str]) -> str:
+def _object_resource(bucket: str, prefix: str | None) -> str:
     """Object-level ARN: scoped to ``prefix/*`` if given, else the whole bucket."""
     if prefix:
         return f"arn:aws:s3:::{bucket}/{prefix.strip('/')}/*"
     return f"arn:aws:s3:::{bucket}/*"
 
 
-def _list_statement(bucket: str, prefix: Optional[str], actions: list[str]) -> dict:
+def _list_statement(bucket: str, prefix: str | None, actions: list[str]) -> dict:
     """Bucket-level list statement.
 
     ListBucket is a bucket-level action; the Resource ARN cannot scope it to a
@@ -39,7 +37,7 @@ def _list_statement(bucket: str, prefix: Optional[str], actions: list[str]) -> d
     return stmt
 
 
-def build_policy(role: Role, bucket: str, prefix: Optional[str]) -> Optional[dict]:
+def build_policy(role: Role, bucket: str, prefix: str | None) -> dict | None:
     """Return an IAM session policy dict, or None for the power role."""
     if role is Role.power:
         return None
