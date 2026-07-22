@@ -1,0 +1,57 @@
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project]
+name = "issue-creds"
+dynamic = ["version"]
+description = "Vend short-lived, scope-limited AWS S3 credentials on 2i2c deployed jupyterhubs."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+authors = [{ name = "John Orcutt", email = "john@reflective.org" }]
+keywords = ["aws", "s3", "sts", "jupyterhub", "credentials", "2i2c", "reflective"]
+dependencies = [
+    "typer>=0.12",
+    "boto3>=1.34",
+]
+
+[project.urls]
+source-code = "https://github.com/ReflectiveCloud/hub-token-vending-machine"
+homepage = "https://reflective.org"
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "ruff>=0.8"]
+
+[project.scripts]
+issue-creds = "issue_creds.cli:app"
+
+[tool.hatch.version]
+# Version is derived from git tags (hatch-vcs / setuptools-scm style); never
+# hardcoded. Tag `vX.Y.Z` -> version `X.Y.Z`. `no-local-version` keeps dev
+# builds (between tags) free of `+g<hash>` local segments so they upload to
+# TestPyPI cleanly.
+source = "vcs"
+raw-options = { local_scheme = "no-local-version" }
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/issue_creds"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src", "tests", "README.md", "pyproject.toml", "LICENSE", "CHANGELOG.md"]
+
+[tool.ruff]
+target-version = "py310"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+# pycodestyle (E/W), pyflakes (F), isort (I), pyupgrade (UP), flake8-bugbear (B),
+# pydocstyle (D) — every public module/class/function must be documented.
+select = ["E", "W", "F", "I", "UP", "B", "D"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "pep257"
+
+[tool.ruff.lint.per-file-ignores]
+# Tests are self-documenting via their names; don't require docstrings there.
+"tests/**" = ["D"]

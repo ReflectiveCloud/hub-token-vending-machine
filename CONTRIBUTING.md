@@ -1,19 +1,27 @@
-# Contributing to {REPO}
+# Contributing to issue-creds
 
 Thank you for your interest in contributing! This document provides guidelines for contributing to the project.
 All contributors are expected to follow our [Code of Conduct](./CODE_OF_CONDUCT.md).
+
+> Found a security issue? Please **do not** open a public issue or PR — follow
+> our [Security Policy](./SECURITY.md) for private disclosure instead.
 
 ## Getting Started
 
 1. Fork and clone the repository:
 
 ```bash
-git clone https://github.com/reflective-org/{REPO}.git
-cd {REPO}
+git clone https://github.com/ReflectiveCloud/hub-token-vending-machine.git
+cd hub-token-vending-machine
 ```
 
-2. Install
-Follow the installation instructions in [the README](./README.md#installation).
+2. Install in editable mode with the development extras:
+
+```bash
+pip install -e .[dev]
+```
+
+See the [README](./README.md#install) for usage and configuration details.
 
 ## Development Workflow
 
@@ -36,32 +44,66 @@ git checkout -b perf/what-you-optimized      # performance improvement
 git commit -m "Add brief description of change"
 ```
 
-4. Push and open a pull request against the `dev` branch.
+4. Push and open a pull request against the `main` branch.
 
 ## Code Style
 - PEP 8 with 4-space indentation
 - Type hints encouraged for public APIs
+- Linting is enforced in CI with [Ruff](https://docs.astral.sh/ruff/); run it
+  locally before pushing:
+
+```bash
+ruff check .
+```
+
 - No enforced formatter yet; please match the surrounding style
 
 ## Running Tests
 
--> Instructions on how to run your unit tests.
+Tests run fully offline — no AWS account or network access required:
+
+```bash
+pip install -e .[dev]
+pytest
+```
 
 ### Writing Tests
 
-- Tests should live in `tests/` and use [pytest](https://docs.pytest.org/).
-- Shared fixtures and mocks should live in `tests/conftest.py`.
-- Mock any cloud or network calls; tests must run offline.
-- Aim for one test file per source module (e.g. `test_storage.py` for `storage.py`).
+- Tests live in `tests/` and use [pytest](https://docs.pytest.org/).
+- Mock any cloud or network calls; tests must run offline. STS and other AWS
+  calls should be stubbed (e.g. by monkeypatching `issue_creds.core`).
+- Aim for one test file per source module (e.g. `test_output.py` for `output.py`).
 
 ## Reporting Issues
 
-When reporting a bug, please include:
+For non-security bugs, please include:
 
 - Python version
-- Package version
+- Package version (`issue-creds --version`)
 - Steps to reproduce the issue
 - Full error traceback
+
+(For security vulnerabilities, see the [Security Policy](./SECURITY.md) instead.)
+
+## Releases
+
+Versioning is fully automated — there is **no version string to edit**. The
+version is derived from git tags by [hatch-vcs](https://github.com/ofek/hatch-vcs)
+(setuptools-scm style):
+
+- Every push to `main` builds the package and publishes a dev version
+  (e.g. `0.1.dev4`) to **TestPyPI**.
+- Pushing a tag `vX.Y.Z` publishes `X.Y.Z` to **PyPI**.
+
+To cut a release:
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+CI lints, tests across all supported Python versions, builds, and publishes via
+PyPI Trusted Publishing (OIDC) — no API tokens involved.
 
 ## License
 
