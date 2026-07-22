@@ -47,12 +47,12 @@ def main(
     )] = "reflective-persistent-prod",
     prefix: Annotated[str | None, typer.Option(
         "--prefix",
-        help="Reads only: restrict to a key prefix, e.g. 'lagranto/runs'. "
-             "Ignored for uploads, which are pinned to your JUPYTERHUB_USER "
-             "prefix.")] = None,
+        help="Restrict to a key prefix, e.g. 'lagranto/runs'. For downloads it "
+             "is optional (whole bucket if omitted). For uploads it overrides "
+             "the default JUPYTERHUB_USER namespace.")] = None,
     lifetime: Annotated[str, typer.Option(
         "--lifetime",
-        help="Credential lifetime: '30m', '2h', '1h30m', or seconds.")] = "1h",
+        help="Credential lifetime: '30m', '2h', '1h30m', or seconds.")] = "30m",
     fmt: Annotated[OutputFormat, typer.Option(
         "--format", help="Output format.")] = OutputFormat.env,
     profile_name: Annotated[str, typer.Option(
@@ -71,7 +71,7 @@ def main(
     """Issue scoped, short-lived S3 credentials for use outside of the Hub."""
     try:
         seconds = _parse_lifetime(lifetime)
-        cap = core.max_duration()
+        cap = core.max_duration(role)
         if seconds < core.AWS_MIN_DURATION:
             raise CredsError(
                 f"lifetime {seconds}s is below the AWS minimum "
@@ -87,12 +87,10 @@ def main(
         bucket = bucket_scope.removeprefix("s3://").strip("/")
 
         if role is Role.upload:
-            if prefix is not None:
-                raise CredsError(
-                    "--prefix is not allowed for uploads; write scope is fixed "
-                    "to your own JUPYTERHUB_USER prefix."
-                )
-            effective_prefix: str | None = core.user_prefix()
+            # Defaults to your own JUPYTERHUB_USER namespace; --prefix overrides it.
+            effective_prefix: str | None = (
+                prefix if prefix is not None else core.user_prefix()
+            )
         elif role is Role.power:
             if prefix is not None:
                 raise CredsError(

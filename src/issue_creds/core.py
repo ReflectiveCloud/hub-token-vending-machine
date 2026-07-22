@@ -26,8 +26,10 @@ _ROLE_ARN_ENV = {
 }
 
 # AWS hard limits for AssumeRoleWithWebIdentity duration.
-AWS_MIN_DURATION = 900       # 15m
-DEFAULT_MAX_DURATION = 3600  # 1h; override with ISSUE_CREDS_MAX_LIFETIME
+AWS_MIN_DURATION = 900        # 15m
+DEFAULT_MAX_DURATION = 3600   # 1h (download/power); see ISSUE_CREDS_MAX_LIFETIME
+UPLOAD_MAX_DURATION = 21600   # 6h; uploads may run long. Needs the upload role's
+                              # MaxSessionDuration >= 6h to actually be granted by STS.
 
 _DUR_RE = re.compile(r"^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$")
 
@@ -50,11 +52,16 @@ def parse_duration(text: str) -> int:
     return h * 3600 + mi * 60 + se
 
 
-def max_duration() -> int:
-    """Cap on requested lifetime: ISSUE_CREDS_MAX_LIFETIME, else the default."""
+def max_duration(role: Role) -> int:
+    """Cap on requested lifetime for a role.
+
+    Defaults to 1h, except uploads which may run up to 6h. A set
+    ISSUE_CREDS_MAX_LIFETIME overrides the per-role default for all roles.
+    """
+    default = UPLOAD_MAX_DURATION if role is Role.upload else DEFAULT_MAX_DURATION
     raw = os.environ.get("ISSUE_CREDS_MAX_LIFETIME")
     if not raw:
-        return DEFAULT_MAX_DURATION
+        return default
     try:
         return parse_duration(raw)
     except ValueError as exc:

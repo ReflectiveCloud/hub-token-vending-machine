@@ -43,6 +43,14 @@ def test_lifetime_below_minimum_fails():
     assert "below the AWS minimum" in result.output
 
 
+def test_default_lifetime_is_30m():
+    result = runner.invoke(
+        app, ["--role", "download", "--bucket-scope", "bkt", "--dry-run"]
+    )
+    assert result.exit_code == 0
+    assert "duration (s)    : 1800" in result.output
+
+
 def test_lifetime_above_cap_fails():
     result = runner.invoke(
         app, ["--role", "download", "--bucket-scope", "bkt", "--lifetime", "2h"]
@@ -69,14 +77,45 @@ def test_invalid_lifetime_is_a_parameter_error():
     assert result.exit_code != 0
 
 
-# --- prefix scoping rules ---------------------------------------------------
-def test_upload_rejects_prefix(monkeypatch):
+def test_upload_allows_up_to_6h(monkeypatch):
     monkeypatch.setenv("JUPYTERHUB_USER", "john")
     result = runner.invoke(
-        app, ["--role", "upload", "--bucket-scope", "bkt", "--prefix", "x"]
+        app,
+        ["--role", "upload", "--bucket-scope", "bkt", "--lifetime", "6h", "--dry-run"],
+    )
+    assert result.exit_code == 0
+    assert "duration (s)    : 21600" in result.output
+
+
+def test_upload_above_6h_fails(monkeypatch):
+    monkeypatch.setenv("JUPYTERHUB_USER", "john")
+    result = runner.invoke(
+        app, ["--role", "upload", "--bucket-scope", "bkt", "--lifetime", "7h"]
     )
     assert result.exit_code == 1
-    assert "--prefix is not allowed for uploads" in result.output
+    assert "exceeds the cap" in result.output
+
+
+def test_download_cap_stays_1h(monkeypatch):
+    # The 6h ceiling is upload-only; download is still capped at 1h.
+    result = runner.invoke(
+        app, ["--role", "download", "--bucket-scope", "bkt", "--lifetime", "2h"]
+    )
+    assert result.exit_code == 1
+    assert "exceeds the cap" in result.output
+
+
+# --- prefix scoping rules ---------------------------------------------------
+def test_upload_prefix_overrides_default(monkeypatch):
+    monkeypatch.setenv("JUPYTERHUB_USER", "john")
+    result = runner.invoke(
+        app,
+        ["--role", "upload", "--bucket-scope", "bkt", "--prefix", "shared/drop",
+         "--dry-run"],
+    )
+    assert result.exit_code == 0
+    assert "scope prefix    : shared/drop" in result.output
+    assert '"arn:aws:s3:::bkt/shared/drop/*"' in result.output
 
 
 def test_power_rejects_prefix():

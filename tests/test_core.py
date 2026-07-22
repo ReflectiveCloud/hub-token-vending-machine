@@ -6,20 +6,27 @@ from issue_creds.models import Role
 
 
 # --- max_duration -----------------------------------------------------------
-def test_max_duration_default(monkeypatch):
+def test_max_duration_default_is_1h_for_download_and_power(monkeypatch):
     monkeypatch.delenv("ISSUE_CREDS_MAX_LIFETIME", raising=False)
-    assert core.max_duration() == core.DEFAULT_MAX_DURATION
+    assert core.max_duration(Role.download) == core.DEFAULT_MAX_DURATION == 3600
+    assert core.max_duration(Role.power) == core.DEFAULT_MAX_DURATION
 
 
-def test_max_duration_override(monkeypatch):
+def test_max_duration_upload_is_6h(monkeypatch):
+    monkeypatch.delenv("ISSUE_CREDS_MAX_LIFETIME", raising=False)
+    assert core.max_duration(Role.upload) == core.UPLOAD_MAX_DURATION == 21600
+
+
+def test_max_duration_env_overrides_all_roles(monkeypatch):
     monkeypatch.setenv("ISSUE_CREDS_MAX_LIFETIME", "2h")
-    assert core.max_duration() == 7200
+    assert core.max_duration(Role.download) == 7200
+    assert core.max_duration(Role.upload) == 7200
 
 
 def test_max_duration_invalid_raises_credserror(monkeypatch):
     monkeypatch.setenv("ISSUE_CREDS_MAX_LIFETIME", "banana")
     with pytest.raises(CredsError):
-        core.max_duration()
+        core.max_duration(Role.download)
 
 
 # --- role_arn_for -----------------------------------------------------------

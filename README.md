@@ -21,8 +21,9 @@ This installs an `issue-creds` command on `$PATH`.
 issue-creds --role download --lifetime 30m
 # Read a single prefix
 issue-creds --role download --prefix lagranto/runs
-# Upload — scope is fixed to your own JUPYTERHUB_USER prefix (no --prefix allowed)
+# Upload — defaults to your own JUPYTERHUB_USER prefix; --prefix overrides it
 issue-creds --role upload
+issue-creds --role upload --prefix shared/inbox
 # Full role (the legacy "power user" behaviour)
 issue-creds --role power
 ```
@@ -38,7 +39,7 @@ Other formats: `--format env` (default), `--format profile`, `--format json`.
 | role       | grants                                                            | prefix scoping                          |
 |------------|-------------------------------------------------------------------|-----------------------------------------|
 | `download` | Get/List (+versions), GetBucketLocation                           | optional `--prefix` (whole bucket if omitted) |
-| `upload`   | Put, multipart, List/ListMultipart, GetBucketLocation (no Get)    | forced to `JUPYTERHUB_USER/*`           |
+| `upload`   | Put, multipart, List/ListMultipart, GetBucketLocation (no Get)    | defaults to `JUPYTERHUB_USER/*`; `--prefix` overrides |
 
 ## Configuration (environment)
 | variable                        | purpose                                                              |
@@ -47,9 +48,9 @@ Other formats: `--format env` (default), `--format profile`, `--format json`.
 | `ISSUE_CREDS_DOWNLOAD_ROLE_ARN` | dedicated download role ARN (optional; overrides the fallback)       |
 | `ISSUE_CREDS_UPLOAD_ROLE_ARN`   | dedicated upload role ARN (optional)                                 |
 | `ISSUE_CREDS_POWER_ROLE_ARN`    | dedicated power role ARN (optional)                                  |
-| `ISSUE_CREDS_MAX_LIFETIME`      | cap on `--lifetime` (default `1h`); also raise the role's `MaxSessionDuration` |
+| `ISSUE_CREDS_MAX_LIFETIME`      | cap on `--lifetime` (default `1h`; `upload` allows up to `6h`); also raise the role's `MaxSessionDuration` |
 | `AWS_WEB_IDENTITY_TOKEN_FILE`   | OIDC token file (set by the hub)                                     |
-| `JUPYTERHUB_USER`               | drives the upload prefix and CloudTrail session name                 |
+| `JUPYTERHUB_USER`               | default upload prefix (overridable with `--prefix`) and CloudTrail session name |
 
 ## Security note
 The session policy is **defense-in-depth, not a boundary**. Any user who can read
