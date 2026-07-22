@@ -79,9 +79,7 @@ def main(
             )
         if seconds > cap:
             raise CredsError(
-                f"lifetime {seconds}s exceeds the cap {cap}s (raise "
-                "ISSUE_CREDS_MAX_LIFETIME and the role's MaxSessionDuration "
-                "to allow more)."
+                f"lifetime {seconds}s exceeds the cap {cap}s."
             )
 
         bucket = bucket_scope.removeprefix("s3://").strip("/")
