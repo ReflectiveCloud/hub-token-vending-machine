@@ -33,8 +33,30 @@ def _list_statement(bucket: str, prefix: str | None, actions: list[str]) -> dict
     }
     if prefix:
         p = prefix.strip("/")
-        stmt["Condition"] = {"StringLike": {"s3:prefix": [f"{p}/*"]}}
+        # Both forms: clients send the list prefix with a trailing slash
+        # ("p/...") or bare ("p", e.g. `aws s3 ls s3://bkt/p`); the pattern
+        # "p/*" alone would deny the bare form.
+        stmt["Condition"] = {"StringLike": {"s3:prefix": [p, f"{p}/*"]}}
     return stmt
+
+
+def _root_nav_statement(bucket_arn: str) -> dict:
+    """Folder-style listing at the bucket root, for orientation only.
+
+    Matches exactly what `aws s3 ls s3://bucket/` sends: empty prefix with
+    delimiter "/". Returns top-level common prefixes (folder names), while
+    recursive root listing (sync, ls --recursive) sends no delimiter and
+    stays denied, so keys outside the granted prefix are not enumerable.
+    """
+    return {
+        "Sid": "RootFolderNavigation",
+        "Effect": "Allow",
+        "Action": ["s3:ListBucket"],
+        "Resource": [bucket_arn],
+        "Condition": {
+            "StringEquals": {"s3:prefix": [""], "s3:delimiter": ["/"]}
+        },
+    }
 
 
 def build_policy(role: Role, bucket: str, prefix: str | None) -> dict | None:
@@ -87,5 +109,10 @@ def build_policy(role: Role, bucket: str, prefix: str | None) -> dict | None:
             ),
             location,
         ]
+
+    if prefix:
+        # Prefix-scoped policies deny root listing outright without this;
+        # unscoped ones don't need it (their ListBucket is unconditioned).
+        statements.append(_root_nav_statement(bucket_arn))
 
     return {"Version": "2012-10-17", "Statement": statements}
